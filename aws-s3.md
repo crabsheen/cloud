@@ -1,29 +1,23 @@
-##aws cli s3 试玩
-关于安装aws cli见官网 [https://docs.aws.amazon.com/cli/latest/userguide/installing.html](https://docs.aws.amazon.com/cli/latest/userguide/installing.html)
+aws cli s3 试玩
+关于安装aws cli见官网 https://docs.aws.amazon.com/cli/latest/userguide/installing.html
 
 安装完毕就开始玩吧。
 
-**需要注意：**
+需要注意：
 
-```
 The AWS CLI signs requests on your behalf, and includes a date in the signature. Ensure that your computer's date and time are set correctly; if not, the date in the signature may not match the date of the request, and AWS rejects the request.
-```
+开始配置认证权限
 
-**开始配置认证权限**
+用aws configure来做配置即可，aliyun也是。 比如osscmd config --id=n8OtIb*****XhmE --key cxfOU3*****OZLlIn
 
-用aws configure来做配置即可，aliyun也是。
-比如`osscmd config --id=n8OtIb*****XhmE --key cxfOU3*****OZLlIn`
+如果拥有多个profiles的话，可以用--profile参数。记得之前在aliyun我准备了好几份.credentials配置用来做到不同region之间的快速切换。
 
-如果拥有多个profiles的话，可以用`--profile`参数。记得之前在aliyun我准备了好几份`.credentials`配置用来做到不同region之间的快速切换。
+配置简单易上手，我这是日本东京(不知道现在热不热)的S3，属于亚太地区，名叫ap-northeast-1。 /var/folders/d_/mfrr4ww10d18vsmwnplt6s9r0000gn/T/com.evernote.Evernote/com.evernote.Evernote/WebKitDnD.Algnj9/7B1A996A-E03D-4F4D-8F05-6F537114D60C.png
 
-配置简单易上手，我这是日本东京(不知道现在热不热)的S3，属于亚太地区，名叫ap-northeast-1。
-![/var/folders/d_/mfrr4ww10d18vsmwnplt6s9r0000gn/T/com.evernote.Evernote/com.evernote.Evernote/WebKitDnD.Algnj9/7B1A996A-E03D-4F4D-8F05-6F537114D60C.png](/var/folders/d_/mfrr4ww10d18vsmwnplt6s9r0000gn/T/com.evernote.Evernote/com.evernote.Evernote/WebKitDnD.Algnj9/7B1A996A-E03D-4F4D-8F05-6F537114D60C.png)
+Home下面会有2个文件.aws/credentials 和 .aws/config，即填入的参数。
 
-Home下面会有2个文件`.aws/credentials` 和 `.aws/config`，即填入的参数。
+ps:出于使用安全考虑，不建议直接上root，建议用amazon IAM 来做新建账户仅仅赋予S3的full permission，创建完毕需要尽快下载.csv，内部有具体的key-pair，也就是aws configure的输入。
 
-ps:出于使用安全考虑，不建议直接上root，建议用amazon IAM 来做新建账户**仅仅赋予S3的full permission**，创建完毕需要尽快下载.csv，内部有具体的key-pair，也就是aws configure的输入。
-
-```
 做个示例，用只有S3操作权限的认证企图去描述一个ec2实例的时候返回UnauthorizedOperation。
 [root@ip-172-31-42-16 ~]# aws s3 ls s3://duweistore                                    
                            PRE mogujie.com/
@@ -34,91 +28,77 @@ ps:出于使用安全考虑，不建议直接上root，建议用amazon IAM 来�
 [root@ip-172-31-42-16 ~]# aws ec2 describe-instances --instance-ids i-073c0bb766c92d3dd
 
 An error occurred (UnauthorizedOperation) when calling the DescribeInstances operation: You are not authorized to perform this operation.
-```
-
 关于认证权限的查找顺序：
 
-```
 aws cli使用AK配置时，looks for的顺序依次为command line options ——> environment variables ——> credentials file ——> config file ——> Container credentials ——> Instance profile credentials
-```
+aws s3 high-level command，通用例子少一些，多举点以前没遇到的。
 
-**aws s3 high-level command，通用例子少一些，多举点以前没遇到的。**
+有递归操作，--recursive还是比较人性化的，可以删除目录下的目录及文件了。
 
-1. 有递归操作，`--recursive`还是比较人性化的，可以删除目录下的目录及文件了。
-
-	```
-	[root@ip-172-31-42-16 ~]# aws s3 rm s3://duweistore/mogujie.com/nginx/ --recursive
+[root@ip-172-31-42-16 ~]# aws s3 rm s3://duweistore/mogujie.com/nginx/ --recursive
 delete: s3://duweistore/mogujie.com/nginx/bin/nginxctl
-	```
-2. 有`Exclude and Include Filters`，支持pattern symbols 来做一些exclude 或 include 不过有一点务必要注意的是先后顺序很重要。	
-PS: When there are multiple filters, the rule is the filters that appear later in the command  take precedence  over filters that appear earlier in the command.
-	默认是全部inclueded的,可以理解为后面第一个参数默认就是`--include “*”` ，也就是说此时你想只把`/tmp/foo/*.jpg`这些模糊匹配的jpg文件都拷贝过去，如果只写`include “*.jpg”` 是错误的，因为本质上默认是all included，下面才是正确姿势。
-`aws s3 cp /tmp/foo/ s3://duweistore/ --recursive --exclude "*" --include "*.jpg"`
-3. 有别于普通Linux环境下的操作，在对目录操作时候，如果不做显式的的排除策略，是会涉及到目录下的隐藏文件，通常我们在Linux环境在对一个目录做cp -rp的时候不会操作到隐藏文件的。比如会将`.wokao`也往s3上挪，稍微注意下比如敏感信息。
-	```
-[root@ip-172-31-42-16 mapp]# aws s3 cp /home/mapp/ s3://duweistore/mogujie.com/ --recursive
-upload: ./.wokao to s3://duweistore/mogujie.com/.wokao
-upload: nginx/bin/nginxctl to s3://duweistore/mogujie.com/nginx/bin/nginxctl
-	```
-4. 小缺点，参数没有简写，得写全。
+有Exclude and Include Filters，支持pattern symbols 来做一些exclude 或 include 不过有一点务必要注意的是先后顺序很重要。
+PS: When there are multiple filters, the rule is the filters that appear later in the command take precedence over filters that appear earlier in the command. 默认是全部inclueded的,可以理解为后面第一个参数默认就是--include “*” ，也就是说此时你想只把/tmp/foo/*.jpg这些模糊匹配的jpg文件都拷贝过去，如果只写include “*.jpg” 是错误的，因为本质上默认是all included，下面才是正确姿势。 aws s3 cp /tmp/foo/ s3://duweistore/ --recursive --exclude "*" --include "*.jpg"
 
-	```
-	aws s3 ls --human-readable --summarize --recursive  s3://duweistore          
+有别于普通Linux环境下的操作，在对目录操作时候，如果不做显式的的排除策略，是会涉及到目录下的隐藏文件，通常我们在Linux环境在对一个目录做cp -rp的时候不会操作到隐藏文件的。比如会将.wokao也往s3上挪，稍微注意下比如敏感信息。 [root@ip-172-31-42-16 mapp]# aws s3 cp /home/mapp/ s3://duweistore/mogujie.com/ --recursive upload: ./.wokao to s3://duweistore/mogujie.com/.wokao upload: nginx/bin/nginxctl to s3://duweistore/mogujie.com/nginx/bin/nginxctl
+
+小缺点，参数没有简写，得写全。
+
+aws s3 ls --human-readable --summarize --recursive  s3://duweistore          
 2018-03-16 09:31:43  793.2 KiB DevOps_Fundamentals_20171206.pdf
 2018-03-28 10:30:16    0 Bytes mogujie.com/
 2018-03-28 10:31:49    2.5 MiB mogujie.com/jca457.jar
-	```
-5. --request-payer这个没玩过，后续玩玩。
-6. 在upload的时候同时设置acl权限，比如`--acl public-read-write`，当然前提是操作用户先要具备`s3:PutObjectAcl`权限，否则白搭。
-7. 为某个对象grants 权限给予 指定的user(email address)
-	
-	```
-	aws s3 cp file.txt s3://mybucket/ --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers full=emailaddress=duwei@mogujie.com
-	```
-8. aws s3 mb 默认在当前配置文件的region区域内创建bucket，也可以用`--region`来指定要创建bucket的目标region。
-9. `pre-signed`预签名玩法
-	
-	```
-	首先说适用场景，简单的说是可以授予任何人有上传对象的临时权限，给他人一个基于时间的权限认证。我想的一个场景是开放给用户甚至其他业务临时具备自主上传对象的权限。
-	All objects and buckets by default are private. The pre-signed URLs are useful if you want your user/customer to be able to upload a specific object to your bucket, but you don't require them to have AWS security credentials or permissions.
-	
-	具体玩法，官方示例，此处生成一段pre-signed url。
-        private static String bucketName = "duweistore";
-        private static String objectKey  = "duwei-presign.txt";
+--request-payer这个没玩过，后续玩玩。
 
-        public static void main(String[] args) throws IOException {
-                AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
+在upload的时候同时设置acl权限，比如--acl public-read-write，当然前提是操作用户先要具备s3:PutObjectAcl权限，否则白搭。
 
-                try {
+为某个对象grants 权限给予 指定的user(email address)
 
-                        System.out.println("Generating pre-signed URL.");
-                        java.util.Date expiration = new java.util.Date();
-                        long milliSeconds = expiration.getTime();
-                        milliSeconds += 1000 * 60 * 60; // Add 1 hour.
-                        expiration.setTime(milliSeconds);
+aws s3 cp file.txt s3://mybucket/ --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers full=emailaddress=duwei@mogujie.com
+aws s3 mb 默认在当前配置文件的region区域内创建bucket，也可以用--region来指定要创建bucket的目标region。
 
-                        GeneratePresignedUrlRequest generatePresignedUrlRequest =
-                                    new GeneratePresignedUrlRequest(bucketName, objectKey);
-                        generatePresignedUrlRequest.setMethod(HttpMethod.PUT);
-                        generatePresignedUrlRequest.setExpiration(expiration);
+pre-signed预签名玩法
 
-                        URL url = s3client.generatePresignedUrl(generatePresignedUrlRequest);
-                        
-   走一个完整示例
-   [root@ip-172-31-42-16 java]# java GeneratePresignedUrlAndUploadObject
+首先说适用场景，简单的说是可以授予任何人有上传对象的临时权限，给他人一个基于时间的权限认证。我想的一个场景是开放给用户甚至其他业务临时具备自主上传对象的权限。
+All objects and buckets by default are private. The pre-signed URLs are useful if you want your user/customer to be able to upload a specific object to your bucket, but you don't require them to have AWS security credentials or permissions.
+
+具体玩法，官方示例，此处生成一段pre-signed url。
+    private static String bucketName = "duweistore";
+    private static String objectKey  = "duwei-presign.txt";
+
+    public static void main(String[] args) throws IOException {
+            AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
+
+            try {
+
+                    System.out.println("Generating pre-signed URL.");
+                    java.util.Date expiration = new java.util.Date();
+                    long milliSeconds = expiration.getTime();
+                    milliSeconds += 1000 * 60 * 60; // Add 1 hour.
+                    expiration.setTime(milliSeconds);
+
+                    GeneratePresignedUrlRequest generatePresignedUrlRequest =
+                                new GeneratePresignedUrlRequest(bucketName, objectKey);
+                    generatePresignedUrlRequest.setMethod(HttpMethod.PUT);
+                    generatePresignedUrlRequest.setExpiration(expiration);
+
+                    URL url = s3client.generatePresignedUrl(generatePresignedUrlRequest);
+
+走一个完整示例
+[root@ip-172-31-42-16 java]# java GeneratePresignedUrlAndUploadObject
 Generating pre-signed URL.
 Pre-Signed URL = https://duweistore.s3.amazonaws.com/duwei-presign.txt?AWSAccessKeyId=AKIAIS65M6PBDJGKAJCQ&Expires=1522587361&Signature=UNld%2FrFYxD%2FQ9wnzx43aNuagJj8%3D
-	
-	[root@ip-172-31-42-16 java]# cat /tmp/fuck 
+
+[root@ip-172-31-42-16 java]# cat /tmp/fuck 
 curl presign test to amazon s3
-	##curl 上传
-	[root@ip-172-31-42-16 java]# curl -v --upload-file "/tmp/fuck" "https://duweistore.s3.amazonaws.com/duwei-presign.txt?AWSAccessKeyId=AKIAIS65M6PBDJGKAJCQ&Expires=1522587361&Signature=UNld%2FrFYxD%2FQ9wnzx43aNuagJj8%3D"         
+##curl 上传
+[root@ip-172-31-42-16 java]# curl -v --upload-file "/tmp/fuck" "https://duweistore.s3.amazonaws.com/duwei-presign.txt?AWSAccessKeyId=AKIAIS65M6PBDJGKAJCQ&Expires=1522587361&Signature=UNld%2FrFYxD%2FQ9wnzx43aNuagJj8%3D"         
 * About to connect() to duweistore.s3.amazonaws.com port 443 (#0)
 *   Trying 52.219.0.1...
 * Connected to duweistore.s3.amazonaws.com (52.219.0.1) port 443 (#0)
 * Initializing NSS with certpath: sql:/etc/pki/nssdb
 *   CAfile: /etc/pki/tls/certs/ca-bundle.crt
-  CApath: none
+CApath: none
 * SSL connection using TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 * Server certificate:
 *       subject: CN=*.s3.amazonaws.com,O=Amazon.com Inc.,L=Seattle,ST=Washington,C=US
@@ -145,15 +125,14 @@ curl presign test to amazon s3
 < Server: AmazonS3
 < 
 * Connection #0 to host duweistore.s3.amazonaws.com left intact
-	##打印输出到std out，屏幕。
-	[root@ip-172-31-42-16 java]# aws s3 cp s3://duweistore/duwei-presign.txt -
+##打印输出到std out，屏幕。
+[root@ip-172-31-42-16 java]# aws s3 cp s3://duweistore/duwei-presign.txt -
 curl presign test to amazon s3
-	``` 
-10. `aws s3 sync`类似于rsync 做本地和远程的同步 or 远程不同目录的同步。
-11. `aws s3 website s3://duweistore2 --index-document xxx.html --error-document yyy.html`将bucket快速地作为一个static website对外服务。注意bucket的策略是赋予Anyone具有s3:GetObject的Action。
+aws s3 sync类似于rsync 做本地和远程的同步 or 远程不同目录的同步。
 
-	```
-	[root@ip-172-31-42-16 ~]# curl http://duweistore2.s3-website-ap-northeast-1.amazonaws.com/presign.txt -i
+aws s3 website s3://duweistore2 --index-document xxx.html --error-document yyy.html将bucket快速地作为一个static website对外服务。注意bucket的策略是赋予Anyone具有s3:GetObject的Action。
+
+[root@ip-172-31-42-16 ~]# curl http://duweistore2.s3-website-ap-northeast-1.amazonaws.com/presign.txt -i
 HTTP/1.1 200 OK
 x-amz-id-2: LCE5XjyJtcvENsVMC3sJoARqCwup7VoIOf1uN3zV07L6D3tLMiDqbbvXNcQ114pEqRFD/IrDs9A=
 x-amz-request-id: 504D58929CA1257C
@@ -164,8 +143,7 @@ Content-Type: binary/octet-stream
 Content-Length: 29
 Server: AmazonS3
 
-	This text uploaded as object.
-``` 
-12. 关于定价`Pay only for what you use`，主要取决于bucket所在region对应的location(东京比北美贵) 以及存储类别 以及 资源使用量。
-	
-	关于使用资源维度有`Storage, Request,Storage Management,Data Transfer,Cross-Region Replication`等细分的计费策略。[https://aws.amazon.com/s3/pricing/](https://aws.amazon.com/s3/pricing/)
+This text uploaded as object.
+关于定价Pay only for what you use，主要取决于bucket所在region对应的location(东京比北美贵) 以及存储类别 以及 资源使用量。
+
+关于使用资源维度有Storage, Request,Storage Management,Data Transfer,Cross-Region Replication等细分的计费策略。https://aws.amazon.com/s3/pricing/
